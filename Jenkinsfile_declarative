@@ -1,0 +1,67 @@
+pipeline {
+  environment {
+    project_name = "targil"
+    version = '1.2.0'
+    artifactory_serverID = "public"
+  }
+  agent any
+  triggers {
+    pollSCM ''
+  }
+  stages {
+    stage('Git Checkout') {
+        steps {
+            git branch: 'main',
+                credentialsId: '48ae0803-4de4-44bf-8aa9-23a301fbb1b8',
+                url: 'https://github.com/adiha2033/targil.git'
+        }
+    }
+    stage('Build Image') {
+      agent any
+      steps {
+        script{
+          docker.build("${project_name}:${version}", "--build-arg VERSION=${version} .")
+        }
+      }
+    }
+    stage('Run zip_job.py') {
+      agent { docker { image "${project_name}:${version}" } } 
+      steps {
+        sh 'python3 /tmp/zip_job.py'
+      }
+    }
+    stage('Upload zip files') {
+      agent any
+      steps {
+        rtUpload(
+          serverId: artifactory_serverID,
+          spec:
+            """{
+              "files": [
+                {
+                  "pattern": "data/*.zip",
+                  "target": "zip-storage/${project_name}/${version}/"
+                }
+              ]
+            }""",
+          failNoOp: true
+        )
+      }
+    }
+  }
+  post {
+    failure {
+      mail to: 'team@example.com',
+        subject: "Failed Pipeline: ${currentBuild.fullDisplayName}",
+        body: "Something is wrong with ${env.BUILD_URL}"
+    }
+    success {
+      mail to: 'team@example.com',
+        subject: "Successed Pipeline: ${currentBuild.fullDisplayName}",
+        body: "Job was successed ${env.BUILD_URL}"
+    }
+    cleanup {
+      deleteDir()
+    }
+  }
+}

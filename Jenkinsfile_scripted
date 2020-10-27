@@ -1,0 +1,70 @@
+/* Send Mail in Case Failed Job: */
+def postFailure() {
+    emailext (
+        subject: "Failed: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'",
+        body: """<p>Failed: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]':</p>
+          <p>Check console output at &QUOT;<a href='${env.BUILD_URL}'>${env.JOB_NAME} [${env.BUILD_NUMBER}]</a>&QUOT;</p>""",
+        to: 'team@example.com'
+      )
+  }
+  /* Delete Workspace: */
+  def postAlways() {
+      cleanWs()
+  }
+
+node {
+  /* Configure Artifactory server Object: */
+  def server = Artifactory.server 'public'
+
+  project_name = 'targil'
+  version = '1.2.0'
+
+  /* Trigger Poll SCM */
+  properties([pipelineTriggers([pollSCM('')])])
+
+  try {
+    stage('Git Checkout') {
+      git branch: 'main', credentialsId: '48ae0803-4de4-44bf-8aa9-23a301fbb1b8', url: 'https://github.com/adiha2033/targil.git'
+    }
+  } catch (e) {
+      postFailure()
+      throw e
+  }
+  try {
+    stage('Build Image') {
+      docker.build("${project_name}:${version}", "--build-arg VERSION=${version} .")
+    }
+  } catch (e) {
+      postFailure()
+      throw e
+  }
+  try {
+    stage('Run zip_job.py') {
+      docker.image("${project_name}:${version}").inside() {
+        sh 'python3 /tmp/zip_job.py'
+      }  
+    }
+  } catch (e) {
+      postFailure()
+      throw e
+  }
+  try {
+    stage('Upload zip files') {
+      def uploadSpec = """{
+        "files": [
+          {
+            "pattern": "*.zip",
+            "target": "zip-storage/${project_name}/${version}/"
+          }
+        ]
+      }"""
+
+      server.upload spec: uploadSpec, failNoOp: true
+    }
+  } catch (e) {
+      postFailure()
+      throw e
+  } finally {
+      postAlways()
+  }
+}
