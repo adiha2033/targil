@@ -78,6 +78,7 @@ the main action of this python application is in the loop who take the array who
 After that it will create zip files who base arr names and `VERSION` and take the text file and zip it and verify the zip files exist, as you can see below:
 
 ```python
+for name in arr:
     fileName = "{}.txt".format(name)
     zipName = "{}_{}.zip".format(name, version)
 
