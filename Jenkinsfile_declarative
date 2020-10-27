@@ -1,7 +1,7 @@
 pipeline {
   environment {
     project_name = "targil"
-    version = '1.2.0'
+    version = '1.2.1'
     artifactory_serverID = "public"
   }
   agent any
