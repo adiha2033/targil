@@ -39,7 +39,7 @@ pipeline {
             """{
               "files": [
                 {
-                  "pattern": "data/*.zip",
+                  "pattern": "*.zip",
                   "target": "zip-storage/${project_name}/${version}/"
                 }
               ]
